@@ -39,7 +39,7 @@ How to run the test code in this library?
     Logging makes measurements, like distance calculations less precise (you
     can see it yourself from the higher standard deviation values returned :-))
 ------------------------------------------------------------
-cd bin
+mkdir bin && cd bin
 ../IoTSensorLibMakefilegen
 make
 ttcn3_start IoTSensorsLibraryTest ../config/IoTSensorLib.cfg
