@@ -1,3 +1,22 @@
+///////////////////////////////////////////////////////////////////////
+// Copyright (c) 2000-2018
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v1.0
+// which accompanies this distribution, and is available at
+// http://www.eclipse.org/legal/epl-v10.html
+//
+// Contributors:
+// 	  Gyorgy Rethy
+// version R1A
+////////////////////////////////////////////////////////////////////////
+// Cheap and widely used ultrasonic distance measure sensor today
+// See a quite comprehensive user guide by Marlin P. Jones at
+// https://www.mpja.com/download/hc-sr04_ultrasonic_module_user_guidejohn.pdf
+//
+// !!!DISABLE DEBUG logging in runtime configuration file when you don't
+// need it severely, this will give ~-1..+1 cm preciceness/30 cm in good
+// conditions
+////////////////////////////////////////////////////////////////////////
 module HC_SR04_test {
 
 import from GPIOPinPort all;
@@ -15,6 +34,14 @@ type record of record {
 } MeasurementsList
 
 
+////////////////////////////////////////////////////////////////////////
+//
+// Test case to check f_HCSR04_measureDistance; it makes a series of
+// distance measurements of 1,2,3,... up to the defined noMeasurements
+//
+////////////////////////////////////////////////////////////////////////
+// @status           verified
+////////////////////////////////////////////////////////////////////////
 testcase TC_HC_SR04() runs on GPIO_Base {
 
   var DistResult v_result;

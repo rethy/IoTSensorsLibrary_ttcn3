@@ -1,5 +1,5 @@
 ///////////////////////////////////////////////////////////////////////
-// Copyright (c) 2000-2018 Ericsson Telecom AB
+// Copyright (c) 2000-2018
 // All rights reserved. This program and the accompanying materials
 // are made available under the terms of the Eclipse Public License v1.0
 // which accompanies this distribution, and is available at
@@ -9,7 +9,7 @@
 // 	  Gyorgy Rethy
 // version R1A
 ////////////////////////////////////////////////////////////////////////
-// Cheap and widely sed ultrasonic distance measure sensor today
+// Cheap and widely used ultrasonic distance measure sensor today
 // See a quite comprehensive user guide by Marlin P. Jones at
 // https://www.mpja.com/download/hc-sr04_ultrasonic_module_user_guidejohn.pdf
 //
@@ -55,7 +55,7 @@ type record DistResult {
 //                   when distance is 0,no object is seen;
 //                   when distance is -1, other error occured (e.g. repetitions<1)
 //                   or no measurement is done.
-// @status           to be tested
+// @status           verified
 ////////////////////////////////////////////////////////////////////////
 
 function f_HCSR04_measureDistance(

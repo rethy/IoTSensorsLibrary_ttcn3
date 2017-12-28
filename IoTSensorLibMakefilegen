@@ -1,0 +1,18 @@
+if pwd | grep IoTSensorsLibrary/bin; then cd .; \
+  elif cd ./bin; then ln -sf ../IoTSensorLib_makefilegen; \
+  else echo Run the script from the IoTSensorsLibrary/bin directory && exit; \
+fi
+ln -sf ../src/IoTSensorLibrary_externals.cc
+ln -sf ../../Titan_FOSS/TestPorts/GPIO/src/GPIO_Pin_Port.hh
+ln -sf ../../Titan_FOSS/TestPorts/GPIO/src/GPIO_Pin_Port.cc
+ln -sf ../../Titan_FOSS/Libraries/TCCUsefulFunctions/src/TCCFileIO.cc
+
+#for dynamic linking: to start tests start script IoTSensorTest_exec from the ./bin directory
+#makefilegen -flRw -e IoTSensorsLibraryTest \
+#for static linking
+makefilegen -fRw -e IoTSensorsLibraryTest \
+  ../src/*.ttcn IoTSensorLibrary_externals.cc \
+  ../test/*.ttcn \
+  ../../Titan_FOSS/TestPorts/GPIO/src/*.ttcn GPIO_Pin_Port.cc GPIO_Pin_Port.hh \
+  ../../Titan_FOSS/Libraries/TCCUsefulFunctions/src/TCCFileIO*.ttcn TCCFileIO.cc \
+  $TTCN3_DIR/include/TitanLoggerControl.ttcn

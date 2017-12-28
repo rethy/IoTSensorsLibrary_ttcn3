@@ -1,0 +1,7 @@
+#TO BE STARTED FROM THE ./BIN DIRECTORY
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/pi/projects/IoTSensorsLibrary/bin
+#cd ./bin
+#ttcn3_start ./bin/IoTSensorsLibraryTest ./config/IoTSensorLib.cfg
+ttcn3_start ./IoTSensorsLibraryTest ../config/IoTSensorLib.cfg
+
+
