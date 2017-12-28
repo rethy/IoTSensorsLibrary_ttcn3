@@ -1,0 +1,35 @@
+How to run the test code in this library?
+
+==> IMPORTANT: DON'T ENABLE DEBUG LOGGING IN THE RUNTIME CONFIG FILE, UNLESS
+    YOU *REALLY* HAVE TO DEBUG YOUR CODE!
+    All other log events are turned off when needed, and then turned back, but
+    DEBUG and ERROR. Logging makes measurements, like distance calculations
+    less precise (let check the standard deviation values returned with
+    DEBUG enabled and disabled ;-))
+
+Provided, you have installed Titan (otherwise see:
+  https://projects.eclipse.org/projects/tools.titan/downloads,
+  installation instruction is in the documentation package):
+You have to clone the dependencies:
+- Titan GPIO test port:
+  git clone git://git.eclipse.org/gitroot/titan/titan.TestPorts.GPIO.git
+- TCCUsefulFunctions:
+  git clone https://github.com/eclipse/titan.Libraries.TCCUsefulFunctions.git
+
+In the script ./IoTSensorLibMakefilegen adjust the directory paths according to
+your actual path names!
+
+When your HW is collected and ready:
+------------------------------------------------------------
+mkdir bin && cd bin
+../IoTSensorLibMakefilegen
+make
+ttcn3_start IoTSensorsLibraryTest ../config/IoTSensorLib.cfg
+------------------------------------------------------------
+
+IoTSensorLibMakefilegen creates all needed softlinks and Makefile in the bin directory.
+If you are using dynamic linking (-l switch is set for makefilegen within
+IoTSensorLibMakefilegen) yu shall start test execution by the ../IoTSensorTests_exec
+script for the bin directory.
+
+Let the FUN be with you!

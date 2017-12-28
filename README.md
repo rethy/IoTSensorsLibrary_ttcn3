@@ -33,21 +33,6 @@ Content of the directories:
        TO EMPTY IT BEFORE COMITTING ANY CODE! ->
        cd bin && rm * && cd ..
           
-How to run the test code in this library?
-==> IMPORTANT: DON'T ENABLE DEBUG LOGGING IN THE RUNTIME CONFIG FILE, UNLESS
-    YOU REALLY HAVE TO DEBUG YOUR CODE!
-    Logging makes measurements, like distance calculations less precise (you
-    can see it yourself from the higher standard deviation values returned :-))
-------------------------------------------------------------
-mkdir bin && cd bin
-../IoTSensorLibMakefilegen
-make
-ttcn3_start IoTSensorsLibraryTest ../config/IoTSensorLib.cfg
-------------------------------------------------------------
+How to run the test code in this library? See HowToExecute.txt!
 
-IoTSensorLibMakefilegen creates all needed softlinks and Makefile in the bin directory.
-If you are using dynamic linking (-l switch is set for makefilegen within
-IoTSensorLibMakefilegen) yu shall start test execution by the ../IoTSensorTests_exec
-script for the bin directory.
-
-Have fun!
+Let the FUN be with you!
