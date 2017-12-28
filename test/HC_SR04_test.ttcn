@@ -1,0 +1,53 @@
+module HC_SR04_test {
+
+import from GPIOPinPort all;
+import from GPIO_Common all;
+import from HC_SR04_UltrasonicDistanceMeter all;
+
+modulepar integer tsp_pin_trigger:=20, tsp_pin_echo:=21;
+
+modulepar integer noMeasurements:=10;
+
+type record of record {
+  integer noMeas,
+  integer distance,
+  float deviation
+} MeasurementsList
+
+
+testcase TC_HC_SR04() runs on GPIO_Base {
+
+  var DistResult v_result;
+  var MeasurementsList v_measList;
+  var integer i, distancesSum:=0, validMeasurements:=0;
+  
+  f_GPIO_init(pin_direction_OUT,{tsp_pin_trigger});
+  f_GPIO_init(pin_direction_IN,{tsp_pin_echo});  
+  
+  for(i:=0;i<noMeasurements;i:=i+1){
+    v_result:=f_HCSR04_measureDistance(gpio[tsp_pin_trigger],gpio[tsp_pin_echo],i+1);
+    v_measList[i].noMeas:=i+1;
+    v_measList[i].distance:=v_result.distance;
+    v_measList[i].deviation:=v_result.deviation;
+    if(v_measList[i].distance>0) {
+      distancesSum:=distancesSum+v_measList[i].distance;
+      validMeasurements:=validMeasurements+1;
+      setverdict(pass);
+    }
+  }
+  
+  f_GPIO_cleanUp({tsp_pin_trigger,tsp_pin_echo});
+
+  if(validMeasurements==0){
+    setverdict(inconc,"No valid measurement has been done")
+  } else {
+    log("MEASURED=",v_measList,"  average of averages=",distancesSum/validMeasurements,
+      "  no. of valid measurements=",validMeasurements)
+  }
+}
+
+
+control{
+  execute(TC_HC_SR04(),10.0);
+}
+}

@@ -1,0 +1,125 @@
+///////////////////////////////////////////////////////////////////////
+// Copyright (c) 2000-2018 Ericsson Telecom AB
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v1.0
+// which accompanies this distribution, and is available at
+// http://www.eclipse.org/legal/epl-v10.html
+//
+// Contributors:
+// 	  Gyorgy Rethy
+// version R1A
+////////////////////////////////////////////////////////////////////////
+// Cheap and widely sed ultrasonic distance measure sensor today
+// See a quite comprehensive user guide by Marlin P. Jones at
+// https://www.mpja.com/download/hc-sr04_ultrasonic_module_user_guidejohn.pdf
+//
+// !!!DISABLE DEBUG logging in runtime configuration file when you don't
+// need it severely, this will give ~-1..+1 cm preciceness/30 cm in good
+// conditions
+////////////////////////////////////////////////////////////////////////
+
+module HC_SR04_UltrasonicDistanceMeter {
+
+import from GPIOPinPort all;
+import from IoTSensorLibrary_Common all;
+import from TitanLoggerControl all;
+
+type record of integer Distances;
+
+type record DistResult {
+  integer distance,
+  float deviation
+}
+
+
+////////////////////////////////////////////////////////////////////////
+//
+// Calculates average distance in cm-s
+//mostly, wen a CPU is not too busy, 1 or just a few neasurements is enuogh
+//
+////////////////////////////////////////////////////////////////////////
+// @par port_trigger GPIO port connected to the trigger pin of HC-SR04
+//                   SHALL BE SET TO OUT DIRECTION AND LOW OUTPUT VALUE
+//                   BEFORE CALLING THIS FUNCTION
+// @par port_echo    GPIO port connected to the echo pin of HC-SR04
+//                   SHALL BE SET TO IN DIRECTION BEFORE CALLING THIS FUNCTION
+// @par repetitions  No. of measurements to do to get the average distance
+//                   for objects with good echoing typically 1 measurement is
+//                   sufficient; however e.g. for round objects of small
+//                   (below 3..4 cm) diameter and lying triangle objects
+//                   the deviation from several measurement will show that
+//                   the measurement is unprecise (may be even more than 2*
+//                   the real distance
+// @return           Returns a record of the measured distance's mean value
+//                   and deviation;
+//                   when distance is 0,no object is seen;
+//                   when distance is -1, other error occured (e.g. repetitions<1)
+//                   or no measurement is done.
+// @status           to be tested
+////////////////////////////////////////////////////////////////////////
+
+function f_HCSR04_measureDistance(
+  GPIO_Pin_Port port_trigger,
+  GPIO_Pin_Port port_echo,
+  integer repetitions :=1) return DistResult {
+
+  var float v_echoTime, v_deviation;
+  var Distances v_distances;
+  var integer i, v_succMeas:=0, v_mean:=0, v_deviationSum:=0;
+  timer T;
+  if (repetitions<1) {
+    log("[ERROR] No. of measurement repetitions shall be at least one");
+    return {-1,0.0}
+  }
+  //during the measurements only the most critical events are logged
+  var Severities var_fileLoggingMask:=get_file_mask(tsp_logger);
+  set_file_mask(tsp_logger,c_logMinimized);
+  
+  for (i:=0;i<repetitions;i:=i+1){
+    //triggering sending 8 burst of 40 kHz
+    port_trigger.send(GPIO_PIN_VALUE:HIGH);
+    T.start(0.00001);T.timeout;
+    port_trigger.send(GPIO_PIN_VALUE:LOW);
+    //processing received echo signal (or no echo)
+    alt{
+      //start waiting for the echo
+      [] port_echo.receive(GPIO_PIN_VALUE:HIGH){
+        //guard time between subsequent measurements (equals 8.5m distance)
+        T.start(0.05);
+        alt{
+          //echo received
+          [] port_echo.receive(GPIO_PIN_VALUE:LOW) {
+            v_echoTime:=T.read;
+            v_distances[i]:=float2int(17000.0*v_echoTime+0.5);
+            v_mean:=v_mean+v_distances[i];
+            v_succMeas:=v_succMeas+1;
+            //log("v_distances[",i,"]=",v_distances[i]," v_succMeas=",v_succMeas);
+            T.stop;
+          }
+          //no echo received
+          [] T.timeout {v_distances[i]:=0}
+        }
+      }
+      //no echo received
+      [] port_echo.receive(GPIO_PIN_VALUE:LOW){v_distances[i]:=0}
+    }
+  }
+  
+  //restoring original log event options
+  set_file_mask(tsp_logger,var_fileLoggingMask);
+  
+  if(v_succMeas==0) {
+    log("[INFO] No echo has been received; there is no visible object, or it is too far or too small");
+    return {0,0.0}
+  } else {
+    v_mean:=v_mean/v_succMeas;
+    //log("v_mean=",v_mean);
+    for (i:=0;i<repetitions;i:=i+1){
+      v_deviationSum:=v_deviationSum+(v_distances[i]-v_mean)*(v_distances[i]-v_mean);
+      //log("v_deviationSum=",v_deviationSum);
+    }
+    v_deviation:=fx_sqrt(int2float(v_deviationSum)/int2float(repetitions))
+    return {v_mean,v_deviation}
+  }
+}
+}
