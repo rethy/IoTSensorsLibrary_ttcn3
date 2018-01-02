@@ -21,6 +21,7 @@
 module HC_SR04_UltrasonicDistanceMeter {
 
 import from GPIOPinPort all;
+import from GPIO_Common all;
 import from IoTSensorLibrary_Common all;
 import from TitanLoggerControl all;
 
@@ -35,7 +36,7 @@ type record DistResult {
 ////////////////////////////////////////////////////////////////////////
 //
 // Calculates average distance in cm-s
-//mostly, wen a CPU is not too busy, 1 or just a few neasurements is enuogh
+//mostly, wen a CPU is not too busy, 1 or just a few neasurements is enough
 //
 ////////////////////////////////////////////////////////////////////////
 // @par port_trigger GPIO port connected to the trigger pin of HC-SR04
@@ -59,9 +60,9 @@ type record DistResult {
 ////////////////////////////////////////////////////////////////////////
 
 function f_HCSR04_measureDistance(
-  GPIO_Pin_Port port_trigger,
-  GPIO_Pin_Port port_echo,
-  integer repetitions :=1) return DistResult {
+  integer port_trigger,
+  integer port_echo,
+  integer repetitions :=1) runs on GPIO_Base return DistResult {
 
   var float v_echoTime, v_deviation;
   var Distances v_distances;
@@ -77,18 +78,18 @@ function f_HCSR04_measureDistance(
   
   for (i:=0;i<repetitions;i:=i+1){
     //triggering sending 8 burst of 40 kHz
-    port_trigger.send(GPIO_PIN_VALUE:HIGH);
+    gpio[port_trigger].send(GPIO_PIN_VALUE:HIGH);
     T.start(0.00001);T.timeout;
-    port_trigger.send(GPIO_PIN_VALUE:LOW);
+    gpio[port_trigger].send(GPIO_PIN_VALUE:LOW);
     //processing received echo signal (or no echo)
     alt{
       //start waiting for the echo
-      [] port_echo.receive(GPIO_PIN_VALUE:HIGH){
+      [] gpio[port_echo].receive(GPIO_PIN_VALUE:HIGH){
         //guard time between subsequent measurements (equals 8.5m distance)
         T.start(0.05);
         alt{
           //echo received
-          [] port_echo.receive(GPIO_PIN_VALUE:LOW) {
+          [] gpio[port_echo].receive(GPIO_PIN_VALUE:LOW) {
             v_echoTime:=T.read;
             v_distances[i]:=float2int(17000.0*v_echoTime+0.5);
             v_mean:=v_mean+v_distances[i];
@@ -101,7 +102,7 @@ function f_HCSR04_measureDistance(
         }
       }
       //no echo received
-      [] port_echo.receive(GPIO_PIN_VALUE:LOW){v_distances[i]:=0}
+      [] gpio[port_echo].receive(GPIO_PIN_VALUE:LOW){v_distances[i]:=0}
     }
   }
   

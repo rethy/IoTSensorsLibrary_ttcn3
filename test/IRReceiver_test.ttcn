@@ -1,0 +1,131 @@
+///////////////////////////////////////////////////////////////////////
+// Copyright (c) 2000-2018
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v1.0
+// which accompanies this distribution, and is available at
+// http://www.eclipse.org/legal/epl-v10.html
+//
+// Contributors:
+// 	  Gyorgy Rethy
+// version R1A
+////////////////////////////////////////////////////////////////////////
+// Module to test module IRReceiver
+//
+////////////////////////////////////////////////////////////////////////
+module IRReceiver_test {
+
+import from GPIOPinPort all;
+import from GPIO_Common all;
+import from IoTSensorLibrary_Common all;
+import from IRReceiver all;
+
+modulepar integer tsp_pin_IRRcvSignal, tsp_pin_IRTrackSignal;
+
+////////////////////////////////////////////////////////////////////////
+//
+// Test case to check what IR receiver is receiving
+// IR receiver code is called locally on the calling component,
+// result is returned in the return value
+//
+////////////////////////////////////////////////////////////////////////
+// @status           verified
+////////////////////////////////////////////////////////////////////////
+testcase TC_IRReceviver_calledLocally() runs on IRReceiver_CT {
+
+  var IRReceiverResult v_result;
+  
+  f_GPIO_init(pin_direction_IN,{tsp_pin_IRRcvSignal});
+  
+  v_result:=f_IRReceive(tsp_pin_IRRcvSignal);
+  
+  log("No of pulses=",lengthof(v_result.times));
+  for(var integer i:=0;i<lengthof(v_result.times);i:=i+1){
+    log(v_result.times[i]);
+  }
+  
+  f_GPIO_cleanUp({tsp_pin_IRRcvSignal});
+}
+
+
+type component MTCempty_CT {}
+
+////////////////////////////////////////////////////////////////////////
+//
+// Test case to check what IR receiver is receiving
+// IR receiver code is started on a remote PTC,
+// result is returned as the return value
+//
+////////////////////////////////////////////////////////////////////////
+// @status           verified
+////////////////////////////////////////////////////////////////////////
+testcase TC_IRReceviver_remotelyStartedReceive() runs on MTCempty_CT {
+
+  var IRReceiverResult v_result;
+  
+  var IRReceiver_CT v_IRRcvPtc:=IRReceiver_CT.create alive;
+  
+  v_IRRcvPtc.start(f_GPIO_init(pin_direction_IN,{tsp_pin_IRRcvSignal}));
+  v_IRRcvPtc.done;
+  
+  //note: function can be started  remotely several times
+  //(hence GPIO port is initialized remotely)
+  v_IRRcvPtc.start(f_IRReceive(tsp_pin_IRRcvSignal));
+  v_IRRcvPtc.done(IRReceiverResult:?)->value v_result;
+  
+  log("No of pulses=",lengthof(v_result.times));
+  for(var integer i:=0;i<lengthof(v_result.times);i:=i+1){
+    log(v_result.times[i]);
+  }
+  
+  v_IRRcvPtc.start(f_GPIO_cleanUp({tsp_pin_IRRcvSignal}));
+  v_IRRcvPtc.done;
+
+  setverdict(pass)
+
+}
+
+type component MTC_CT extends IRReceiver_CT {}
+
+////////////////////////////////////////////////////////////////////////
+//
+// Test case to check what IR receiver is receiving
+// IR receiver code is started on remote a PTC,  measurement is running
+// in a loop, results are returned in inter-component messages
+//
+////////////////////////////////////////////////////////////////////////
+// @status           verified
+////////////////////////////////////////////////////////////////////////
+testcase TC_IRReceviver_ptcLoopedReceive() runs on MTC_CT {
+
+  var IRReceiverResult v_result;
+  var IRReceiver_CT v_IRRcvPtc:=IRReceiver_CT.create alive;
+  timer T_Wait:=60.0;
+  
+  connect(mtc:irRcvCoord,v_IRRcvPtc:irRcvCoord)
+  
+  v_IRRcvPtc.start(f_IRReceive(tsp_pin_IRRcvSignal));
+  
+  T_Wait.start;
+  alt{
+    [] irRcvCoord.receive(IRReceiverResult:?)->value v_result {
+      log("-----------------------------------------------------\n",
+          "No of pulses=",lengthof(v_result.times));
+      for(var integer i:=0;i<lengthof(v_result.times);i:=i+1){
+        log(v_result.times[i]);
+      }
+      repeat;
+    }
+    [] T_Wait.timeout {
+        //killing the PTC
+        irRcvCoord.send(c_PTC_kill);
+    }
+  }
+  setverdict(pass)
+}
+
+control{
+  execute(TC_IRReceviver_calledLocally());
+  execute(TC_IRReceviver_remotelyStartedReceive());
+  execute(TC_IRReceviver_ptcLoopedReceive());
+}
+}

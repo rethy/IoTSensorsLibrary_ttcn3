@@ -1,0 +1,169 @@
+///////////////////////////////////////////////////////////////////////
+// Copyright (c) 2000-2018
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v1.0
+// which accompanies this distribution, and is available at
+// http://www.eclipse.org/legal/epl-v10.html
+//
+// Contributors:
+// 	  Gyorgy Rethy
+// version R1A
+////////////////////////////////////////////////////////////////////////
+// Cheap IR receiver sensors are widely used in remote control receivers.
+// Signals are encoded by pulse and pause widths,unfortunately, practically
+// as many encoding schema exists as remote control producers...  
+// See more at e.g.
+// http://what-when-how.com/Tutorial/topic-2446rrd/Experimenting-with-Raspberry-Pi-102.html
+// 
+//
+// !!!DISABLE DEBUG logging in runtime configuration file when you don't
+// need it severely, this will give significantly more precise results
+////////////////////////////////////////////////////////////////////////
+
+module IRReceiver {
+
+import from GPIOPinPort all;
+import from GPIO_Common all;
+import from IoTSensorLibrary_Common all;
+import from TitanLoggerControl all;
+
+type port IRReceiver_PT message {
+  //shall be sent from the PTC running IR receiver only, and
+  //shall only be received in the component controlling IR receiver
+  inout PtcControlCommands, IRReceiverResult
+} with {extension "internal"}
+
+
+type component IRReceiver_CT extends GPIO_Base {
+  port IRReceiver_PT irRcvCoord
+}
+
+type record IRReceiverResult {
+  bitstring code,
+  record of record {
+    float pulseWidth,
+    float pauseWidth
+  } times
+} with {extension "done"}
+
+type enumerated DecodeMode {raw}
+
+////////////////////////////////////////////////////////////////////////
+//
+// Returns the received signal and pause widths, and the code, if decoding
+//   scema is known. When a signal is received, supposed that the whole code
+//   is received within 1 sec.
+// Function can be called in 3 ways:
+//   - called directly on a component containing IRReceiver_CT in its extends
+//     clause; the first code received is returned as the functions return vale
+//   - started remotely WITHOUT connecting to the irRcvCoord port; in this case
+//     the function returns after the first code is received and returns the 
+//     result in its return value (retreived in the starting component via
+//     value returning done)
+//   - started remotely AFTER connecting to the irRcvCoord port; in this case
+//     the function runs in a loop and returns each received code in a message
+//     sent via irRcvCoord; the function can be stopped by the STOP or KILL
+//     commands sent via irRcvCoord port; if STOP is sent and the PTC has been
+//     created as alive, only the function stops, the PTC stays in the system;
+//     if KILL is sent, the PTC kills itself.
+//
+////////////////////////////////////////////////////////////////////////
+// @par port_signal  GPIO port connected to the signal pin of the sensor
+// @par p_decMode    IR signal decoding mode
+//                     raw: list of pulse and pauses is returned
+// @return           Returns pairs of signal and pause widths and - if
+//                   decoding scema is known - the received code as bitstring.
+// @status           verified
+////////////////////////////////////////////////////////////////////////
+
+function f_IRReceive(
+  integer port_signal,
+  DecodeMode p_decMode:=raw
+  ) runs on IRReceiver_CT return IRReceiverResult {
+
+  var IRReceiverResult.code v_code;
+  timer T_wait:= 1.0;
+  var integer i, j;
+  var float v_edgeDown, v_edgeUp, v_minWidth, v_maxWidth, v_meanWidth;
+  var IRReceiverResult.times v_times;
+  var PtcControlCommands v_ptcCommandRcv;
+  
+  if(irRcvCoord.checkstate("Connected")){
+  }
+  //storing original file logging mask
+  var Severities v_fileLoggingMask:=get_file_mask(tsp_logger);
+  //during the measurements only the most critical events are logged
+  set_file_mask(tsp_logger,c_logMinimized);
+
+  if(irRcvCoord.checkstate("Connected")){
+    f_GPIO_init(pin_direction_IN,{port_signal});
+  }
+
+  while(true){
+    i:=0; j:=0;
+    v_code:=''B;
+    v_times:={};
+    alt{
+    //Starting receiving a series of pulses
+      [] gpio[port_signal].receive(GPIO_PIN_VALUE:LOW) {
+        v_edgeUp:=T_wait.read
+        T_wait.start;
+        alt {
+          [] gpio[port_signal].receive(GPIO_PIN_VALUE:HIGH){
+            v_edgeDown:=T_wait.read;
+            v_times[i].pulseWidth:=T_wait.read-v_edgeUp;
+            i:=i+1;
+            repeat;
+          }
+          [] gpio[port_signal].receive(GPIO_PIN_VALUE:LOW) {
+            v_edgeUp:=T_wait.read
+            if(isbound(v_edgeDown)){
+              v_times[j].pauseWidth:=T_wait.read-v_edgeDown;
+              j:=j+1;
+		    }
+            repeat;
+          }
+          //No edge for 1 sec., sequence considered be finished
+          [] T_wait.timeout{
+            if(not isbound(v_times[j].pauseWidth)){v_times[j].pauseWidth:=0.0}
+          }
+        }
+      }
+    }//end outer alt
+    
+    select (p_decMode){
+      case(raw){}
+      //no IR remote code is implemented
+    }
+    if(irRcvCoord.checkstate("Connected")){
+      irRcvCoord.send(IRReceiverResult:{v_code,v_times})
+    } else {
+      //restoring original log event options
+      set_file_mask(tsp_logger,v_fileLoggingMask);
+      return {v_code,v_times}
+    }
+    //checking for waiting stop component signal
+    alt{
+      [] irRcvCoord.receive((c_PTC_stop,c_PTC_kill))->value v_ptcCommandRcv{
+         goto OUT_OF_WHILE
+      }
+      [] irRcvCoord.receive{
+         log("[ERROR] The only command allowed is ",c_PTCCommandList)
+      }
+      [else] {}
+    }
+  }//end while
+  label OUT_OF_WHILE
+  //restoring original log event options
+  set_file_mask(tsp_logger,v_fileLoggingMask);
+
+  if(irRcvCoord.checkstate("Connected")){
+    //cleaning up GPIO port before returning
+    f_GPIO_cleanUp({port_signal});
+    if(v_ptcCommandRcv==c_PTC_kill){self.kill}
+  }
+
+  //needed to make Titan happy...
+  return {v_code,v_times}
+ }
+}

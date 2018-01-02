@@ -15,8 +15,14 @@ module IoTSensorLibrary_Common {
 
 import from TitanLoggerControl all;
 
-//DON'T CHANGE this unless you are absolutelly sure, other logger is used!
-modulepar charstring tsp_logger:="LegacyLogger";
+type enumerated PtcControlCommands {STOP,KILL};
+
+type record of PtcControlCommands PtcControlCommandsList;
+
+const PtcControlCommands c_PTC_stop:=STOP;
+const PtcControlCommands c_PTC_kill:=KILL;
+
+const PtcControlCommandsList c_PTCCommandList:={STOP,KILL}
 
 //The most critical logging events
 const Severities c_logMinimized:={
